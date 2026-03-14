@@ -27,11 +27,14 @@ export default function Home() {
         body: JSON.stringify({ destination, travel_style: style }),
       });
 
-      if (!response.ok) throw new Error("Failed to generate itinerary");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to generate itinerary");
+      }
       const data = await response.json();
       setItinerary(data);
-    } catch (err) {
-      setError("Something went wrong. Please check if the backend is running and your API key is valid.");
+    } catch (err: any) {
+      setError(err.message || "Something went wrong. Please check if the backend is running and your API key is valid.");
       console.error(err);
     } finally {
       setLoading(false);

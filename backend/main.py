@@ -58,20 +58,36 @@ async def generate_itinerary(request: TravelRequest):
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
 
     try:
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        # Use system_instruction to enforce JSON schema strictly
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction="You are a professional travel architect. Always respond in valid JSON following the provided schema. Do not include markdown formatting like ```json ... ``` in your response."
+        )
         
         prompt = f"""
         Create a detailed 3-day travel itinerary for {request.destination} with a focus on {request.travel_style}.
-        Return the itinerary in a structured JSON format following this schema:
-        - destination: name of the city/place
-        - travel_style: the requested style
-        - summary: brief catchy summary of the trip
-        - days: array of 3 days
-            - day_number: 1, 2, or 3
-            - theme: theme for that day
-            - activities: array of objects (time, description, location)
         
-        Ensure the suggestions are practical and localized to {request.destination}.
+        The JSON schema must be:
+        {{
+            "destination": "string",
+            "travel_style": "string",
+            "summary": "string",
+            "days": [
+                {{
+                    "day_number": number,
+                    "theme": "string",
+                    "activities": [
+                        {{
+                            "time": "string",
+                            "description": "string",
+                            "location": "string"
+                        }}
+                    ]
+                }}
+            ]
+        }}
+        
+        Ensure exactly 3 days. Activities should be specific to {request.destination}.
         """
 
         response = model.generate_content(
@@ -79,13 +95,24 @@ async def generate_itinerary(request: TravelRequest):
             generation_config={"response_mime_type": "application/json"}
         )
         
+        if not response.text:
+            raise Exception("AI returned empty response")
+            
         # Parse the JSON response
         itinerary_data = json.loads(response.text)
         return itinerary_data
 
     except Exception as e:
-        print(f"Error generating itinerary: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        print(f"Error generating itinerary: {error_msg}")
+        
+        # Friendly error messages for common Gemini issues
+        if "429" in error_msg:
+            raise HTTPException(status_code=429, detail="Gemini API Quota Exceeded. Please wait a minute or check your billing.")
+        if "403" in error_msg:
+            raise HTTPException(status_code=403, detail="Gemini API Key is invalid or has no access.")
+        
+        raise HTTPException(status_code=500, detail=error_msg)
 
 if __name__ == "__main__":
     import uvicorn
