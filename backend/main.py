@@ -58,7 +58,7 @@ async def generate_itinerary(request: TravelRequest):
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
 
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash")
         
         prompt = f"""
         Create a detailed 3-day travel itinerary for {request.destination} with a focus on {request.travel_style}.
