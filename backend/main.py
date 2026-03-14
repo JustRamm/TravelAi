@@ -103,16 +103,16 @@ async def generate_itinerary(request: TravelRequest):
         return itinerary_data
 
     except Exception as e:
-        error_msg = str(e)
-        print(f"Error generating itinerary: {error_msg}")
+        error_msg = str(e).lower()
+        print(f"Error generating itinerary: {e}")
         
-        # Friendly error messages for common Gemini issues
-        if "429" in error_msg:
-            raise HTTPException(status_code=429, detail="Gemini API Quota Exceeded. Please wait a minute or check your billing.")
-        if "403" in error_msg:
-            raise HTTPException(status_code=403, detail="Gemini API Key is invalid or has no access.")
+        # Detect quota and key issues more reliably
+        if "429" in error_msg or "quota" in error_msg or "resource_exhausted" in error_msg:
+            raise HTTPException(status_code=429, detail="Gemini API Quota Exceeded. Please wait 60 seconds.")
+        if "403" in error_msg or "api_key" in error_msg or "permission_denied" in error_msg:
+            raise HTTPException(status_code=403, detail="Gemini API Key is invalid or restricted.")
         
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
