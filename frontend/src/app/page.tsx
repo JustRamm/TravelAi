@@ -1,220 +1,185 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plane, MapPin, Compass, Loader2, Sparkles, Calendar, Clock } from "lucide-react";
-import { Itinerary } from "@/types";
+import { motion } from "framer-motion";
+import { ArrowUpCircle } from "lucide-react";
+import { useTravelArchitect } from "@/hooks/useTravelArchitect";
+import { ArchitectForm } from "@/components/forms/ArchitectForm";
+import { SidebarInfo } from "@/components/itinerary/SidebarInfo";
+import { DayTimeline } from "@/components/itinerary/DayTimeline";
+import { Logo } from "@/components/ui/Logo";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Globe } from "@/components/ui/globe";
 
+/**
+ * Main Application Entrance
+ * Architects bespoke travel journeys using high-fidelity LLM engines.
+ * 
+ * Modular implementation to ensure long-term maintainability 
+ * and clear separation of concerns.
+ */
 export default function Home() {
-  const [destination, setDestination] = useState("");
-  const [style, setStyle] = useState("Adventure");
-  const [loading, setLoading] = useState(false);
-  const [itinerary, setItinerary] = useState<Itinerary | null>(null);
-  const [error, setError] = useState("");
+  const {
+    viewState,
+    selections,
+    updateSelection,
+    activeDayIdx,
+    setActiveDayIdx,
+    itinerary,
+    error,
+    isRegenerating,
+    handleStartSearch,
+    resetArchitect,
+    regenerateActivity
+  } = useTravelArchitect();
 
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!destination) return;
-
-    setLoading(true);
-    setItinerary(null);
-    setError("");
-
-    try {
-      const response = await fetch("http://localhost:8000/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ destination, travel_style: style }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to generate itinerary");
-      }
-      const data = await response.json();
-      setItinerary(data);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong. Please check if the backend is running and your API key is valid.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  // Animation Variants for orchestrated entrance
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
   };
 
-  const styles = ["Adventure", "Luxury", "Budget", "Family", "Foodie", "Relaxation", "Culture"];
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 12 } }
+  };
+
+  const downloadAsPDF = async () => {
+    if (!itinerary) return;
+    const html2pdf = (await import("html2pdf.js")).default;
+    const htmlContent = `
+      <div style="font-family: 'Helvetica Neue', Arial; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; background: #fff;">
+        <h1 style="border-bottom: 2px solid #D4AF37; padding-bottom: 10px;">The ${itinerary.destination} Collection</h1>
+        <p style="font-style: italic;">${itinerary.summary}</p>
+        ${itinerary.days.map(day => `
+          <h3>Day ${day.day_number}: ${day.theme}</h3>
+          ${day.activities.map(act => `
+            <p><strong>${act.time} - ${act.location}</strong><br/>${act.description}</p>
+          `).join('')}
+        `).join('')}
+      </div>
+    `;
+    html2pdf().from(htmlContent).save(`${itinerary.destination}_itinerary.pdf`);
+  };
 
   return (
-    <main className="min-h-screen bg-[#030712] text-white selection:bg-indigo-500/30">
-      {/* Background Glow */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full" />
-      </div>
+    <main className="h-screen w-screen overflow-hidden bg-[#050505] text-slate-300 selection:bg-[#D4AF37]/30 relative flex flex-col">
+      
+      {/* Dynamic Background Architecture */}
+      <BackgroundEngine viewState={viewState} />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-12 lg:py-20">
-        {/* Header */}
-        <header className="text-center mb-16">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-sm font-medium mb-6"
-          >
-            <Sparkles size={14} />
-            AI-Powered Travel Planning
-          </motion.div>
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-5xl lg:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400"
-          >
-            AI Travel Architect
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-gray-400 text-lg max-w-2xl mx-auto"
-          >
-            Transform your travel dreams into a perfectly curated 3-day itinerary in seconds.
-          </motion.p>
-        </header>
+      {/* Primary Search Interface */}
+      <motion.div 
+        animate={{ y: viewState === 'result' ? '-100vh' : '0vh', opacity: viewState === 'result' ? 0 : 1 }}
+        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        className={`absolute inset-0 z-10 w-full h-full flex flex-col justify-center items-center px-4 ${viewState === 'result' ? 'pointer-events-none' : ''}`}
+      >
+        <div className="max-w-[1500px] w-full mx-auto">
+          {error && <ErrorOverlay message={error} />}
 
-        {/* Input Form */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl mb-12"
-        >
-          <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-            <div className="space-y-2">
-              <label htmlFor="destination" className="text-sm font-medium text-gray-400 ml-1 flex items-center gap-2">
-                <MapPin size={14} /> Destination
-              </label>
-              <input 
-                id="destination"
-                type="text"
-                placeholder="Where to next? (e.g. Kyoto, Paris)"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="travel-style" className="text-sm font-medium text-gray-400 ml-1 flex items-center gap-2">
-                <Compass size={14} /> Travel Style
-              </label>
-              <select 
-                id="travel-style"
-                value={style}
-                onChange={(e) => setStyle(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none"
+          <header className="text-center mb-16 px-4 flex flex-col items-center">
+            <Logo className="w-20 h-20 mb-8" />
+            <div className="overflow-hidden mb-6">
+              <motion.h1 
+                initial={{ y: "100%" }} animate={{ y: 0 }} transition={{ duration: 0.8 }}
+                className="text-5xl lg:text-7xl font-serif italic font-light tracking-tight text-white leading-[1.1]"
               >
-                {styles.map(s => <option key={s} value={s} className="bg-gray-900">{s}</option>)}
-              </select>
+                Travel <span className="font-sans not-italic font-bold bg-clip-text text-transparent bg-gradient-to-b from-[#F3E5AB] to-[#D4AF37]">Architect</span>
+              </motion.h1>
             </div>
+            <p className="text-slate-500 text-sm lg:text-base max-w-lg mx-auto font-light leading-relaxed tracking-wide">
+              Engineering bespoke high-end travel experiences through the lens of computational artistry.
+            </p>
+          </header>
 
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all h-[50px] shadow-lg shadow-indigo-600/20"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" size={20} />
-                  Architecting...
-                </>
-              ) : (
-                <>
-                  <Plane size={20} />
-                  Plan My Trip
-                </>
-              )}
-            </button>
-          </form>
-        </motion.div>
+          <ArchitectForm 
+            selections={selections}
+            isLoading={viewState === 'loading'}
+            onUpdate={updateSelection}
+            onSubmit={(e) => { e.preventDefault(); handleStartSearch(); }}
+          />
+        </div>
+      </motion.div>
 
-        {/* Results */}
-        <AnimatePresence mode="wait">
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-center mb-8"
-            >
-              {error}
-            </motion.div>
-          )}
+      {/* Specialized Result Dashboard */}
+      <motion.div 
+        animate={{ y: viewState === 'result' ? '0vh' : '100vh', opacity: viewState === 'result' ? 1 : 0 }}
+        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        className={`absolute inset-0 z-20 w-full h-full flex flex-col ${viewState !== 'result' ? 'pointer-events-none' : ''}`}
+      >
+        {/* Navigation Header */}
+        <div className="w-full flex justify-between items-center px-8 py-6 bg-gradient-to-b from-[#050505] to-transparent z-50 shrink-0">
+          <button onClick={resetArchitect} className="flex items-center gap-3 group">
+            <Logo className="w-8 h-8" />
+            <span className="text-white/60 text-[10px] font-bold uppercase tracking-[0.3em] group-hover:text-[#D4AF37] transition-colors">Architect</span>
+          </button>
+          <button 
+            onClick={resetArchitect}
+            className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/30 text-white text-xs font-bold uppercase tracking-wider transition-all"
+          >
+            <ArrowUpCircle size={14} className="text-[#D4AF37] group-hover:-translate-y-1 transition-transform" /> 
+            Try Another Destination
+          </button>
+        </div>
 
-          {loading && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center py-20 grayscale opacity-50"
-            >
-              <Compass size={64} className="text-indigo-500 animate-[spin_3s_linear_infinite] mb-6" />
-              <p className="text-gray-400 animate-pulse">Consulting travel guides and local secrets...</p>
-            </motion.div>
-          )}
-
+        {/* Dynamic Content Grid */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide w-full px-4 lg:px-8 pb-32">
           {itinerary && (
-            <motion.div 
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-12 pb-20"
-            >
-              <div className="text-center">
-                <h2 className="text-3xl font-bold mb-3">Your Trip to {itinerary.destination}</h2>
-                <p className="text-gray-400 italic">"{itinerary.summary}"</p>
-              </div>
+            <motion.div key="itinerary-grid" variants={containerVariants} initial="hidden" animate="visible" className="max-w-[1700px] mx-auto pt-8">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-12 lg:gap-20 items-start relative">
+                
+                <SidebarInfo 
+                  itinerary={itinerary} 
+                  activeDayIdx={activeDayIdx}
+                  onDownload={downloadAsPDF}
+                  variants={itemVariants} 
+                />
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {itinerary.days.map((day, idx) => (
-                  <motion.div 
-                    key={day.day_number}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden flex flex-col h-full hover:border-indigo-500/30 transition-colors group"
-                  >
-                    <div className="p-6 border-b border-white/10 bg-indigo-500/5 group-hover:bg-indigo-500/10 transition-colors">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-indigo-400 font-bold flex items-center gap-2">
-                          <Calendar size={16} /> Day {day.day_number}
-                        </span>
-                      </div>
-                      <h3 className="text-xl font-bold">{day.theme}</h3>
-                    </div>
-                    <div className="p-6 space-y-6 flex-grow">
-                      {day.activities.map((activity, aIdx) => (
-                        <div key={aIdx} className="relative pl-6 border-l border-white/10 last:border-0 pb-2">
-                          <div className="absolute left-[-5px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-500/50 border border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                          <div className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-1">
-                            <Clock size={12} /> {activity.time}
-                          </div>
-                          <div className="font-semibold text-sm mb-1">{activity.location}</div>
-                          <div className="text-gray-400 text-sm leading-relaxed">
-                            {activity.description}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                ))}
+                <DayTimeline 
+                  itinerary={itinerary}
+                  activeDayIdx={activeDayIdx}
+                  setActiveDayIdx={setActiveDayIdx}
+                  isRegenerating={isRegenerating}
+                  onRegenerate={regenerateActivity}
+                />
+
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
-      </div>
-
-      <footer className="relative z-10 border-t border-white/5 py-12 text-center text-gray-600 text-sm">
-        <p>© 2026 AI Travel Architect. Crafted for Mathew Voyages.</p>
-      </footer>
+        </div>
+      </motion.div>
     </main>
   );
 }
+
+/**
+ * Support Components (Internal to Page for scoping)
+ */
+const BackgroundEngine = ({ viewState }: { viewState: string }) => (
+  <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+    <motion.div 
+      animate={{ scale: [1, 1.2, 1], x: [0, 50, 0], y: [0, 30, 0] }}
+      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+      style={{ backgroundColor: 'rgba(212, 175, 55, 0.05)' }}
+      className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] blur-[140px] rounded-full" 
+    />
+    <motion.div 
+      animate={{
+        y: viewState === 'loading' ? "-60vh" : viewState === 'result' ? "-120vh" : "0vh"
+      }}
+      transition={{ type: "tween", duration: 2, ease: "easeInOut" }}
+      className="absolute top-[65vh] left-1/2 -translate-x-1/2 w-full max-w-[1600px] aspect-square opacity-20 pointer-events-none"
+    >
+      <Globe className="scale-[2.5]" />
+    </motion.div>
+  </div>
+);
+
+const ErrorOverlay = ({ message }: { message: string }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: -10 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center backdrop-blur-md mb-8 max-w-xl mx-auto"
+  >
+    {message}
+  </motion.div>
+);
