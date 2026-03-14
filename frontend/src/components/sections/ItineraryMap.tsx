@@ -54,16 +54,22 @@ function MapUpdater({ center, zoom }: { center: [number, number], zoom: number }
 
 interface ItineraryMapProps {
   itinerary: Itinerary;
+  activeDayIdx?: number;
 }
 
-export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
-  const allActivities = itinerary.days.flatMap(day => day.activities);
+export default function ItineraryMap({ itinerary, activeDayIdx }: ItineraryMapProps) {
+  // If activeDayIdx is provided, only show that day's activities. Otherwise show all.
+  const activeActivities = activeDayIdx !== undefined 
+    ? itinerary.days[activeDayIdx]?.activities || []
+    : itinerary.days.flatMap(day => day.activities);
   
-  // Calculate center of all points
-  const avgLat = allActivities.reduce((sum, act) => sum + act.lat, 0) / allActivities.length;
-  const avgLng = allActivities.reduce((sum, act) => sum + act.lng, 0) / allActivities.length;
-  
-  const polylinePoints: [number, number][] = allActivities.map(act => [act.lat, act.lng]);
+  // Calculate average coordinates to center the map
+  const totalPoints = activeActivities.length || 1;
+  const avgLat = activeActivities.reduce((acc, act) => acc + act.lat, 0) / totalPoints;
+  const avgLng = activeActivities.reduce((acc, act) => acc + act.lng, 0) / totalPoints;
+
+  const polylinePoints: [number, number][] = activeActivities.map(act => [act.lat, act.lng]);
+
 
   return (
     <motion.div 
@@ -83,7 +89,7 @@ export default function ItineraryMap({ itinerary }: ItineraryMapProps) {
         />
         <MapUpdater center={[avgLat, avgLng]} zoom={12} />
         
-        {allActivities.map((activity, idx) => (
+        {activeActivities.map((activity, idx) => (
           <Marker 
             key={idx} 
             position={[activity.lat, activity.lng]} 
