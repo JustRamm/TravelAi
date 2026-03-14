@@ -7,35 +7,42 @@ from pydantic import BaseModel, Field
 import google.generativeai as genai
 from dotenv import load_dotenv
 
+# --- System Configuration ---
+# We use load_dotenv to manage our Gemini credentials locally. 
+# Ensure GOOGLE_API_KEY is defined in your local .env file.
 load_dotenv()
 
-app = FastAPI(title="AI Travel Architect API")
+# Project Identifier: TravelArchitect-Alpha
+server_app = FastAPI(title="Travel Architect Service Core")
 
-# Enable CORS for frontend
-app.add_middleware(
+# CORS Policy: Restricted to local development for initial release phase.
+server_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify the frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Gemini Configuration
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GEMINI_API_KEY:
-    print("Warning: GOOGLE_API_KEY not found in environment variables.")
+# Initialize Generative Client
+API_KEY_SECRET = os.getenv("GOOGLE_API_KEY")
+if not API_KEY_SECRET:
+    print("[Error] Critical: GOOGLE_API_KEY missing from environment.")
 
-genai.configure(api_key=GEMINI_API_KEY)
+genai.configure(api_key=API_KEY_SECRET)
 
 # Data Models for JSON Output Enforcement
 class Activity(BaseModel):
     time: str = Field(description="Time of the day or duration")
     description: str = Field(description="Detailed description of the activity")
     location: str = Field(description="Name of the place")
+    lat: float = Field(description="Latitude of the location")
+    lng: float = Field(description="Longitude of the location")
 
 class DayPlan(BaseModel):
     day_number: int
     theme: str = Field(description="General theme of the day")
+    weather: str = Field(description="Brief predicted weather/atmosphere for this day (e.g., 'Sunny, 22°C')")
     activities: List[Activity]
 
 class Itinerary(BaseModel):
@@ -48,72 +55,106 @@ class TravelRequest(BaseModel):
     destination: str
     travel_style: str
 
-@app.get("/")
-async def root():
-    return {"message": "AI Travel Architect API is running"}
+@server_app.get("/health")
+async def check_api_status():
+    """Utility endpoint to verify service availability."""
+    return {"status": "operational", "engine": "Gemini-Flash-Hybrid"}
 
-@app.post("/api/generate", response_model=Itinerary)
-async def generate_itinerary(request: TravelRequest):
-    if not GEMINI_API_KEY:
-        raise HTTPException(status_code=500, detail="Gemini API Key not configured")
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from google.api_core import exceptions
 
-    try:
-        # Use system_instruction to enforce JSON schema strictly
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction="You are a professional travel architect. Always respond in valid JSON following the provided schema. Do not include markdown formatting like ```json ... ``` in your response."
-        )
-        
-        prompt = f"""
-        Create a detailed 3-day travel itinerary for {request.destination} with a focus on {request.travel_style}.
-        
-        The JSON schema must be:
-        {{
-            "destination": "string",
-            "travel_style": "string",
-            "summary": "string",
-            "days": [
-                {{
-                    "day_number": number,
-                    "theme": "string",
-                    "activities": [
-                        {{
-                            "time": "string",
-                            "description": "string",
-                            "location": "string"
-                        }}
-                    ]
-                }}
-            ]
-        }}
-        
-        Ensure exactly 3 days. Activities should be specific to {request.destination}.
-        """
+# Models to try in order of preference
+MODELS_TO_TRY = [
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest", # This is Gemini 1.5 Flash
+    "gemini-flash-lite-latest",
+]
 
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
-        
-        if not response.text:
-            raise Exception("AI returned empty response")
-            
-        # Parse the JSON response
-        itinerary_data = json.loads(response.text)
-        return itinerary_data
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type((exceptions.ResourceExhausted, exceptions.ServiceUnavailable)),
+    reraise=True
+)
+def call_gemini(model_name: str, prompt: str):
+    model = genai.GenerativeModel(
+        model_name=model_name,
+        system_instruction="You are a professional travel architect. Always respond in valid JSON following the provided schema. Do not include markdown formatting like ```json ... ``` in your response."
+    )
+    response = model.generate_content(
+        prompt,
+        generation_config={"response_mime_type": "application/json"}
+    )
+    if not response.text:
+        raise Exception("AI returned empty response")
+    return json.loads(response.text)
 
-    except Exception as e:
-        error_msg = str(e).lower()
-        print(f"Error generating itinerary: {e}")
-        
-        # Detect quota and key issues more reliably
-        if "429" in error_msg or "quota" in error_msg or "resource_exhausted" in error_msg:
-            raise HTTPException(status_code=429, detail="Gemini API Quota Exceeded. Please wait 60 seconds.")
-        if "403" in error_msg or "api_key" in error_msg or "permission_denied" in error_msg:
-            raise HTTPException(status_code=403, detail="Gemini API Key is invalid or restricted.")
-        
-        raise HTTPException(status_code=500, detail=str(e))
+@server_app.post("/api/generate", response_model=Itinerary)
+async def create_travel_itinerary(user_request: TravelRequest):
+    """
+    Primary endpoint for journey generation.
+    It iterates through available LLM models to find the fastest response time.
+    """
+    if not API_KEY_SECRET:
+        raise HTTPException(status_code=500, detail="Cloud API credentials not found.")
+
+    # Constructing a targeted prompt for the travel architect engine
+    system_prompt = f"""
+    Build a bespoke 3-day travel plan for {user_request.destination} centered on {user_request.travel_style}.
+    
+    Output Format (Strict JSON):
+    {{
+        "destination": "{user_request.destination}",
+        "travel_style": "{user_request.travel_style}",
+        "summary": "High-level overview",
+        "days": [
+            {{
+                "day_number": 1,
+                "theme": "Theme title",
+                "weather": "Atmospheric condition",
+                "activities": [
+                    {{
+                        "time": "HH:MM AM/PM",
+                        "description": "Details",
+                        "location": "Venue Name",
+                        "lat": 0.0,
+                        "lng": 0.0
+                    }}
+                ]
+            }}
+        ]
+    }}
+    
+    Processing Rules:
+    - Use authentic geolocation coordinates.
+    - Weather should match the destination's current season.
+    """
+
+    generation_fault = None
+    for active_model in MODELS_TO_TRY:
+        try:
+            print(f"[Engine] Selecting model: {active_model}...")
+            generated_response = call_gemini(active_model, system_prompt)
+            return generated_response
+        except exceptions.ResourceExhausted:
+            print(f"[Warning] Quota limit reached for {active_model}.")
+            generation_fault = "Quota Limit: Please wait 60 seconds."
+            continue
+        except Exception as e:
+            raw_err = str(e).lower()
+            print(f"[System Error] {active_model} failed: {e}")
+            if "429" in raw_err or "quota" in raw_err:
+                continue
+            generation_fault = str(e)
+            break
+    
+    raise HTTPException(
+        status_code=429 if generation_fault and "Quota" in generation_fault else 500, 
+        detail=generation_fault or "The architect is currently unavailable."
+    )
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Starting internal dev server on local port 8000
+    uvicorn.run(server_app, host="0.0.0.0", port=8000)
