@@ -7,13 +7,13 @@ from pydantic import BaseModel, Field
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# --- System Configuration ---
-# We use load_dotenv to manage our Gemini credentials locally. 
-# Ensure GOOGLE_API_KEY is defined in your local .env file.
+# --- Config Setup ---
+# loading dotenv so it picks up the api key locally from the file
+# dont forget to add .env on prod
 load_dotenv()
 
-# Project Identifier: TravelArchitect-Alpha
-server_app = FastAPI(title="Travel Architect Service Core")
+# App name maybe change this later
+server_app = FastAPI(title="Travel Planner V1")
 
 # CORS Policy: Restricted to local development for initial release phase.
 server_app.add_middleware(
@@ -24,10 +24,11 @@ server_app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Generative Client
+# init gen client
 API_KEY_SECRET = os.getenv("GOOGLE_API_KEY")
 if not API_KEY_SECRET:
-    print("[Error] Critical: GOOGLE_API_KEY missing from environment.")
+    print("[Error] damn, GOOGLE_API_KEY is missing. check env vars.")
+    # raise Exception("no key")
 
 genai.configure(api_key=API_KEY_SECRET)
 
@@ -91,22 +92,26 @@ def call_gemini(model_name: str, prompt: str):
     return json.loads(response.text)
 
 @server_app.post("/api/generate", response_model=Itinerary)
-async def create_travel_itinerary(user_request: TravelRequest):
+async def create_travel_itinerary(user_req: TravelRequest):
     """
-    Primary endpoint for journey generation.
-    It iterates through available LLM models to find the fastest response time.
+    Main endpoint that talks to LLM.
+    # TODO: this needs to be refactored eventually, way too much stuff in one func
     """
     if not API_KEY_SECRET:
-        raise HTTPException(status_code=500, detail="Cloud API credentials not found.")
+        raise HTTPException(status_code=500, detail="API credentials not found.")
 
-    # Constructing a targeted prompt for the travel architect engine
+    # debugging user req
+    print("got req:", user_req.destination, user_req.travel_style)
+
+    # construct the prompt
+    # tried using few-shot prompting here before but it was too slow
     system_prompt = f"""
-    Build a bespoke 3-day travel plan for {user_request.destination} centered on {user_request.travel_style}.
+    Build a bespoke 3-day travel plan for {user_req.destination} centered on {user_req.travel_style}.
     
     Output Format (Strict JSON):
     {{
-        "destination": "{user_request.destination}",
-        "travel_style": "{user_request.travel_style}",
+        "destination": "{user_req.destination}",
+        "travel_style": "{user_req.travel_style}",
         "summary": "High-level overview",
         "days": [
             {{
@@ -134,11 +139,13 @@ async def create_travel_itinerary(user_request: TravelRequest):
     generation_fault = None
     for active_model in MODELS_TO_TRY:
         try:
-            print(f"[Engine] Selecting model: {active_model}...")
-            generated_response = call_gemini(active_model, system_prompt)
-            return generated_response
+            print(f"trying model: {active_model}...")
+            # old way:
+            # res = genai.GenerativeModel("gemini-1.5-flash").generate_content(...)
+            generated_res = call_gemini(active_model, system_prompt)
+            return generated_res
         except exceptions.ResourceExhausted:
-            print(f"[Warning] Quota limit reached for {active_model}.")
+            print(f"[Warning] quota hit for {active_model}. moving on.")
             generation_fault = "Quota Limit: Please wait 60 seconds."
             continue
         except Exception as e:
