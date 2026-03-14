@@ -86,10 +86,11 @@ export default function Home() {
         >
           <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1 flex items-center gap-2">
+              <label htmlFor="destination" className="text-sm font-medium text-gray-400 ml-1 flex items-center gap-2">
                 <MapPin size={14} /> Destination
               </label>
               <input 
+                id="destination"
                 type="text"
                 placeholder="Where to next? (e.g. Kyoto, Paris)"
                 value={destination}
@@ -100,10 +101,11 @@ export default function Home() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1 flex items-center gap-2">
+              <label htmlFor="travel-style" className="text-sm font-medium text-gray-400 ml-1 flex items-center gap-2">
                 <Compass size={14} /> Travel Style
               </label>
               <select 
+                id="travel-style"
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none"

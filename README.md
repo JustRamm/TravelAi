@@ -2,22 +2,7 @@
 
 A functional, containerized full-stack application that generates personalized 3-day travel itineraries using the Gemini 1.5 API.
 
-## 🚀 Quick Start
 
-1. **Clone the repository** (or copy the files).
-2. **Add your Gemini API Key**:
-   Create a `.env` file in the root directory:
-   ```env
-   GOOGLE_API_KEY=your_actual_gemini_api_key
-   ```
-3. **Build and Run**:
-   ```bash
-   docker-compose up --build
-   ```
-4. **Access the app**:
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
 
 ## 🏗️ Architecture Decisions
 
