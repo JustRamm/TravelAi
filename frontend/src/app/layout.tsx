@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Travel Architect | Bespoke AI Journeys",
   description: "Crafting curated journeys for the discerning traveler. Precise, personal, and profoundly inspired.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -29,7 +32,6 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#050505]`}
       >
-        <Navbar />
         {children}
       </body>
     </html>

@@ -85,13 +85,23 @@ class ArchitectEngine:
         - "destination": "{req.state}, {req.country}"
         - "travel_style": "{req.travel_style}"
         - "summary": A professional overview of the journey.
-        - "transport": Primary transit details.
-        - "accommodation": Lodging details.
-        - "days": A list of 3 DayPlan objects.
+        - "transport": Primary transit object with exactly these fields: mode (str), details (str), cost (str), booking_link (str).
+        - "accommodation": Lodging object with exactly these fields: name (str), description (str), cost_per_night (str), booking_link (str).
+        - "days": A list of 3 DayPlan objects. Each DayPlan object MUST have: day_number (int), theme (str), weather (str), activities (list of Activity objects).
+        
+        Each Activity object MUST EXACTLY contain these fields:
+        - time (str)
+        - description (str)
+        - location (str): Name or address of the location (DO NOT use an object for this)
+        - lat (float): Latitude coordinate
+        - lng (float): Longitude coordinate
+        - cost_estimate (str)
+        - transport_details (str)
+        - nearest_station (str)
         
         Requirements:
-        - Authenticated geolocation (lat/lng) for every activity.
-        - Realistic cost projections.
+        - Authenticated geolocation (lat/lng) for every activity as top-level float values in the Activity object.
+        - Realistic cost projections in INR (Indian Rupees).
         - Atmospheric, high-fidelity descriptions.
         """
 
@@ -103,4 +113,14 @@ class ArchitectEngine:
         Style: {req.travel_style}
         
         Output: A single valid 'Activity' JSON object.
+        
+        The Activity object MUST EXACTLY contain these fields:
+        - time (str): {req.time} or suitable time.
+        - description (str)
+        - location (str): Name or address of the location (DO NOT use an object for this)
+        - lat (float): Latitude coordinate
+        - lng (float): Longitude coordinate
+        - cost_estimate (str): Projected cost in INR (e.g., '₹500').
+        - transport_details (str)
+        - nearest_station (str)
         """

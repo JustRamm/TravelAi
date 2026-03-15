@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Cloud, Clock, RefreshCw, MapPin, DollarSign, Navigation, Train, ChevronLeft, ChevronRight } from "lucide-react";
+import { Cloud, Clock, RefreshCw, MapPin, IndianRupee, Navigation, Train, ChevronLeft, ChevronRight } from "lucide-react";
 import { Itinerary } from "@/types";
 
 interface DayTimelineProps {
@@ -16,31 +16,51 @@ export const DayTimeline = ({ itinerary, activeDayIdx, setActiveDayIdx, isRegene
   return (
     <div className="w-full relative z-20">
       <div className="space-y-6">
-        {/* Navigation Controls */}
-        <div className="flex items-center justify-between bg-white/5 border border-white/10 p-3 md:p-4 rounded-2xl mb-8 backdrop-blur-xl sticky top-8 z-40 shadow-2xl shadow-black/80">
+        {/* Floating Navigation Controls - Relocated for Better Focus */}
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-[#0a0a0a]/80 backdrop-blur-2xl border border-white/10 px-6 py-3 rounded-full z-[100] shadow-[0_20px_50px_rgba(0,0,0,0.8)] border-b-white/5 ring-1 ring-white/5">
           <button 
             onClick={() => setActiveDayIdx(Math.max(0, activeDayIdx - 1))}
             disabled={activeDayIdx === 0}
-            className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-xs md:text-sm font-medium"
+            aria-label="Previous Day"
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-300 group"
           >
-            <ChevronLeft size={16} /> <span className="hidden sm:inline">Previous</span>
+            <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
           </button>
           
-          <div className="flex space-x-2 md:space-x-3">
+          <div className="flex items-center gap-4 px-4 border-l border-r border-white/10">
             {itinerary.days.map((_: any, idx: number) => (
               <button
-                key={idx} onClick={() => setActiveDayIdx(idx)} title={`Jump to Day ${idx + 1}`}
-                className={`rounded-full transition-all duration-300 ${idx === activeDayIdx ? 'bg-[#D4AF37] scale-150 w-2 h-2 md:w-2.5 md:h-2.5 shadow-[0_0_10px_rgba(212,175,55,0.5)]' : 'bg-white/20 hover:bg-white/40 w-1.5 h-1.5 md:w-2 md:h-2'}`}
-              />
+                key={idx} 
+                onClick={() => setActiveDayIdx(idx)} 
+                className="group relative flex items-center justify-center p-1"
+              >
+                <div 
+                  className={`transition-all duration-500 rounded-full ${
+                    idx === activeDayIdx 
+                      ? 'bg-[#D4AF37] w-2.5 h-2.5 shadow-[0_0_15px_rgba(212,175,55,0.8)]' 
+                      : 'bg-white/20 w-1.5 h-1.5 group-hover:bg-white/40'
+                  }`} 
+                />
+                {idx === activeDayIdx && (
+                  <motion.div 
+                    layoutId="activeDayGlow"
+                    className="absolute -inset-2 bg-[#D4AF37]/20 blur-md rounded-full -z-10"
+                  />
+                )}
+                <span className={`absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap`}>
+                  Day {idx + 1}
+                </span>
+              </button>
             ))}
           </div>
 
           <button 
             onClick={() => setActiveDayIdx(Math.min(itinerary.days.length - 1, activeDayIdx + 1))}
             disabled={activeDayIdx === itinerary.days.length - 1}
-            className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-xs md:text-sm font-medium"
+            aria-label="Next Day"
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-300 group"
           >
-             <span className="hidden sm:inline">Next</span> <ChevronRight size={16} />
+            <ChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
 
@@ -109,7 +129,7 @@ export const DayTimeline = ({ itinerary, activeDayIdx, setActiveDayIdx, isRegene
                         <div className="flex flex-wrap items-center gap-3 pt-4 mt-2 border-t border-white/5">
                           {activity.cost_estimate && (
                             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 text-green-400 text-[10px] font-medium border border-green-500/20">
-                              <DollarSign size={10} /> {activity.cost_estimate}
+                              <IndianRupee size={10} /> {activity.cost_estimate}
                             </div>
                           )}
                           {activity.transport_details && (

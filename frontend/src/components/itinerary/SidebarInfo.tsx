@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Download, Plane, BedDouble, DollarSign } from "lucide-react";
+import { Download, Plane, BedDouble, IndianRupee } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Itinerary } from "@/types";
 
@@ -66,7 +66,7 @@ const LogisticsCard = ({ icon, title, description, cost }: { icon: React.ReactNo
     </div>
     <div className="flex justify-between items-end">
       <p className="text-white/70 text-sm line-clamp-1">{description}</p>
-      <p className="text-[#D4AF37] font-medium text-sm flex items-center gap-1"><DollarSign size={14} />{cost}</p>
+      <p className="text-[#D4AF37] font-medium text-sm flex items-center gap-1"><IndianRupee size={14} />{cost}</p>
     </div>
   </div>
 );

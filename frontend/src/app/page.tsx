@@ -9,6 +9,7 @@ import { DayTimeline } from "@/components/itinerary/DayTimeline";
 import { Logo } from "@/components/ui/Logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Globe } from "@/components/ui/globe";
+import { Navbar } from "@/components/layout/Navbar";
 
 /**
  * Main Application Entrance
@@ -63,6 +64,17 @@ export default function Home() {
 
   return (
     <main className="h-screen w-screen overflow-hidden bg-[#050505] text-slate-300 selection:bg-[#D4AF37]/30 relative flex flex-col">
+      <Navbar 
+        action={viewState === 'result' ? (
+          <button 
+            onClick={resetArchitect}
+            className="group flex items-center gap-3 px-6 py-2.5 rounded-full bg-[#D4AF37] hover:bg-[#F3E5AB] text-[#050505] text-[11px] font-black uppercase tracking-[0.1em] shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)] transition-all duration-300 transform hover:scale-105 active:scale-95"
+          >
+            <ArrowUpCircle size={16} className="text-[#050505] group-hover:-rotate-90 transition-transform duration-500" /> 
+            Try Another Destination
+          </button>
+        ) : undefined} 
+      />
       
       {/* Dynamic Background Architecture */}
       <BackgroundEngine viewState={viewState} />
@@ -106,23 +118,8 @@ export default function Home() {
         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
         className={`absolute inset-0 z-20 w-full h-full flex flex-col ${viewState !== 'result' ? 'pointer-events-none' : ''}`}
       >
-        {/* Navigation Header */}
-        <div className="w-full flex justify-between items-center px-8 py-6 bg-gradient-to-b from-[#050505] to-transparent z-50 shrink-0">
-          <button onClick={resetArchitect} className="flex items-center gap-3 group">
-            <Logo className="w-8 h-8" />
-            <span className="text-white/60 text-[10px] font-bold uppercase tracking-[0.3em] group-hover:text-[#D4AF37] transition-colors">Architect</span>
-          </button>
-          <button 
-            onClick={resetArchitect}
-            className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/30 text-white text-xs font-bold uppercase tracking-wider transition-all"
-          >
-            <ArrowUpCircle size={14} className="text-[#D4AF37] group-hover:-translate-y-1 transition-transform" /> 
-            Try Another Destination
-          </button>
-        </div>
-
         {/* Dynamic Content Grid */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide w-full px-4 lg:px-8 pb-32">
+        <div className="flex-1 overflow-y-auto scrollbar-hide w-full px-4 lg:px-8 pb-32 pt-32">
           {itinerary && (
             <motion.div key="itinerary-grid" variants={containerVariants} initial="hidden" animate="visible" className="max-w-[1700px] mx-auto pt-8">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-12 lg:gap-20 items-start relative">
@@ -164,9 +161,10 @@ const BackgroundEngine = ({ viewState }: { viewState: string }) => (
     />
     <motion.div 
       animate={{
-        y: viewState === 'loading' ? "-60vh" : viewState === 'result' ? "-120vh" : "0vh"
+        y: viewState === 'loading' ? "-60vh" : viewState === 'result' ? "-120vh" : "0vh",
+        opacity: viewState === 'result' ? 0.05 : 0.2
       }}
-      transition={{ type: "tween", duration: 2, ease: "easeInOut" }}
+      transition={{ type: "tween", duration: 15, ease: "easeInOut" }}
       className="absolute top-[65vh] left-1/2 -translate-x-1/2 w-full max-w-[1600px] aspect-square opacity-20 pointer-events-none"
     >
       <Globe className="scale-[2.5]" />
